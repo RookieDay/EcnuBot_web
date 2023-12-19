@@ -2,6 +2,7 @@ import time
 import gradio as gr
 from model import bridge_qianfan, bridge_ChatGLM3, bridge_educhat, bridge_qwen
 
+
 def parse_text(text):
     """copy from https://github.com/GaiZhenbiao/ChuanhuChatGPT/"""
     lines = text.split("\n")
@@ -45,7 +46,11 @@ def reset_radio_input():
 
 def user_text(user_input, history):
     prompt = parse_text(user_input)
-    return "", history + [[prompt, None]]
+    return gr.update(interactive=False), gr.update(value=""), history + [[prompt, None]]
+
+
+def text_unlock(k):
+    return gr.update(interactive=True)
 
 
 def predict(
@@ -73,9 +78,8 @@ def predict(
     for stream_char in response:
         print(stream_char)
         chatbot[-1][1] += stream_char
-        time.sleep(0.1)
+        time.sleep(0.05)
         yield chatbot
-
 
 with gr.Blocks() as demo:
     gr.Markdown(
@@ -128,13 +132,12 @@ with gr.Blocks() as demo:
                     avatar_images=["assets/User.png", "assets/EcnuBot.png"]
                 )
                 user_input = gr.Textbox(
-                    show_label=False, placeholder="请输入您的提问", lines=2
+                    show_label=False, placeholder="请输入您的提问", lines=2, interactive=True
                 ).style(container=False)
                 with gr.Column(min_width=32, scale=1):
                     with gr.Row():
                         emptyBtn = gr.Button("🧹 Clear History (清除历史)")
                         submitBtn = gr.Button("🚀 Submit (发送)", variant="primary")
-                        # regen_btn = gr.Button("🤔️ Regenerate (重试)")
 
     history = gr.State([])
 
@@ -160,12 +163,16 @@ with gr.Blocks() as demo:
     )
 
     submitBtn.click(
-        user_text, [user_input, chatbot], [user_input, chatbot], queue=False
+        user_text, [user_input, chatbot], [user_input, user_input, chatbot], queue=False
     ).then(
         predict,
         [chatbot, model_dropdown, edu_radio, max_length, top_p, temperature],
         [chatbot],
+        show_progress=True,
+    ).then(
+        text_unlock, [], [user_input]
     )
+
     edu_radio.select(reset_radio_input, [], [user_input], queue=False)
     emptyBtn.click(reset_state, outputs=[chatbot, history], queue=False)
 
