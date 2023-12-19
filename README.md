@@ -67,7 +67,7 @@ python .\main.py
 
 </details>
 
-<details><summary><b>文生图</b></summary>
+<details><summary><b>问答输出</b></summary>
 
 ![image](https://github.com/RookieDay/EcnuBot_web/blob/main/assets/Test.png)
 
