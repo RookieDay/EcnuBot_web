@@ -65,15 +65,17 @@ def predict(
     prompt = chatbot[-1][0]
     chatbot[-1][1] = ""
     if model_dropdown == "EduChat":
-        response = bridge_educhat.get_resp(
-            prompt, edu_radio, max_length, top_p, temperature, history
-        )
+        response = bridge_educhat.get_resp(prompt, edu_radio, max_length, top_p, temperature, history)
     if model_dropdown == "qianfan":
         response = bridge_qianfan.get_resp(prompt, top_p, temperature, history)
     if model_dropdown == "qwen":
         response = bridge_qwen.get_resp(prompt, max_length, top_p, temperature, history)
+    print('model_dropdown')
+    print(model_dropdown)
     if model_dropdown == "ChatGLM3":
         response = bridge_ChatGLM3.get_resp(prompt, history)
+        print('in glm3....')
+        print(response)
     history = history + [[prompt, response]]
     for stream_char in response:
         print(stream_char)

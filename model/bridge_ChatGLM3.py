@@ -19,11 +19,11 @@ def get_resp(user_input, history):
             model="chatglm3-6b",
             messages=chatGLM3_data["messages"],
         )
-        response = response["output"]["text"]
+        # 返回来的值，前面有换行
+        response = response["output"]["text"][2:]
 
         chatGLM3_data["messages"].append({"role": "assistant", "content": response})
         asyncio.run(user_data.storge_data(user_input, response, time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()), model_name))
-
         return response
     except:
         return "ChatGLM3 任务存在问题"

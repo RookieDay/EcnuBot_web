@@ -25,5 +25,5 @@ async def storge_data(text_prompt, response, local_time, model_name):
             index=[len(user_QA)],
         )
         user_dfNew = pd.concat([user_QA, user_df], ignore_index=True)
-        print(user_dfNew)
+        # print(user_dfNew)
         user_dfNew.to_csv(file_name, index=False)
