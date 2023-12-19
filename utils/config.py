@@ -1,4 +1,7 @@
 config = {
+    # 文心
+    "wenxin_ak": "",  # 文心大模型的ak
+    "wenxin_sk": "",  # 文心大模型的sk
     # 千帆大模型
     "qianfan_url": "https://aip.baidubce.com/oauth/2.0/token",
     "qianfan_img": "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/text2image/sd_xl?access_token=",

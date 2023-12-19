@@ -1,6 +1,6 @@
+import time
 import gradio as gr
 from model import bridge_qianfan, bridge_ChatGLM3, bridge_educhat, bridge_qwen
-
 
 def parse_text(text):
     """copy from https://github.com/GaiZhenbiao/ChuanhuChatGPT/"""
@@ -35,10 +35,6 @@ def parse_text(text):
     return text
 
 
-def reset_user_input():
-    return gr.update(value="")
-
-
 def reset_state():
     return [], [], None
 
@@ -47,18 +43,22 @@ def reset_radio_input():
     return None
 
 
+def user_text(user_input, history):
+    prompt = parse_text(user_input)
+    return "", history + [[prompt, None]]
+
+
 def predict(
-    user_input,
     chatbot,
     model_dropdown,
     edu_radio,
     max_length,
     top_p,
     temperature,
-    history,
 ):
-    prompt = parse_text(user_input)
-    chatbot.append((prompt, ""))
+    history = chatbot[:-1]
+    prompt = chatbot[-1][0]
+    chatbot[-1][1] = ""
     if model_dropdown == "EduChat":
         response = bridge_educhat.get_resp(
             prompt, edu_radio, max_length, top_p, temperature, history
@@ -69,15 +69,18 @@ def predict(
         response = bridge_qwen.get_resp(prompt, max_length, top_p, temperature, history)
     if model_dropdown == "ChatGLM3":
         response = bridge_ChatGLM3.get_resp(prompt, history)
-    chatbot[-1] = (prompt, response)
-    history.append((prompt, response))
-    yield chatbot, history
+    history = history + [[prompt, response]]
+    for stream_char in response:
+        print(stream_char)
+        chatbot[-1][1] += stream_char
+        time.sleep(0.1)
+        yield chatbot
 
 
 with gr.Blocks() as demo:
     gr.Markdown(
         """\
-    <p align="center"><img src='/file=assets/EcnuBot.png' style="height: 60px"/><p>"""
+    <p align="center"><img src='/file=assets/Logo.png' style="height: 60px"/><p>"""
     )
     gr.Markdown("""<center><font size=6>EcnuBot</center>""")
     with gr.Column():
@@ -121,7 +124,9 @@ with gr.Blocks() as demo:
                 )
 
             with gr.Column(scale=6):
-                chatbot = gr.Chatbot()
+                chatbot = gr.Chatbot(
+                    avatar_images=["assets/User.png", "assets/EcnuBot.png"]
+                )
                 user_input = gr.Textbox(
                     show_label=False, placeholder="Input...", lines=2
                 ).style(container=False)
@@ -155,24 +160,14 @@ with gr.Blocks() as demo:
     )
 
     submitBtn.click(
+        user_text, [user_input, chatbot], [user_input, chatbot], queue=False
+    ).then(
         predict,
-        [
-            user_input,
-            chatbot,
-            model_dropdown,
-            edu_radio,
-            max_length,
-            top_p,
-            temperature,
-            history,
-        ],
-        [chatbot, history],
-        show_progress=True,
+        [chatbot, model_dropdown, edu_radio, max_length, top_p, temperature],
+        [chatbot],
     )
-    submitBtn.click(reset_user_input, [], [user_input])
-    edu_radio.select(reset_radio_input, [], [user_input])
-    # regen_btn.click(regenerate, [chatbot, model_dropdown, edu_radio, max_length, top_p, temperature, history], [chatbot], show_progress=True)
-    emptyBtn.click(reset_state, outputs=[chatbot, history], show_progress=True)
+    edu_radio.select(reset_radio_input, [], [user_input], queue=False)
+    emptyBtn.click(reset_state, outputs=[chatbot, history], queue=False)
 
 demo.queue().launch(
     share=False,
