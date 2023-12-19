@@ -1,5 +1,8 @@
 import json
 import requests
+import asyncio
+import time
+from utils import user_data
 
 ecnu_data = {"messages": []}
 ecnu_scor = {"messages": []}
@@ -15,6 +18,7 @@ edu_text = {
 
 
 def get_resp(user_input, edu_radio, max_length, top_p, temperature, history):
+    model_name = "EduChat"
     if edu_radio == "教学":
         ecnu_data = ecnu_scor
     if edu_radio == "问答":
@@ -36,6 +40,7 @@ def get_resp(user_input, edu_radio, max_length, top_p, temperature, history):
         response = requests.post(url, data=payload, headers=headers)
         response = response.json()["response"]
         ecnu_data["messages"].append({"role": "assistant", "content": response})
+        asyncio.run(user_data.storge_data(user_input, response, time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()), model_name))
         return response
     except:
         response = "EduChat 任务存在问题"

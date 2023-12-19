@@ -128,7 +128,7 @@ with gr.Blocks() as demo:
                     avatar_images=["assets/User.png", "assets/EcnuBot.png"]
                 )
                 user_input = gr.Textbox(
-                    show_label=False, placeholder="Input...", lines=2
+                    show_label=False, placeholder="请输入您的提问", lines=2
                 ).style(container=False)
                 with gr.Column(min_width=32, scale=1):
                     with gr.Row():

@@ -1,5 +1,7 @@
 import dashscope
-from utils import config
+import asyncio
+import time
+from utils import config, user_data
 
 dashscope.api_key = config.config["dashscope_key"]
 chatGLM3_data = {
@@ -8,6 +10,7 @@ chatGLM3_data = {
 
 
 def get_resp(user_input, history):
+    model_name = "ChatGLM3"
     if not history:
         chatGLM3_data["messages"] = [chatGLM3_data["messages"][0]]
     chatGLM3_data["messages"].append({"role": "user", "content": user_input})
@@ -19,6 +22,8 @@ def get_resp(user_input, history):
         response = response["output"]["text"]
 
         chatGLM3_data["messages"].append({"role": "assistant", "content": response})
+        asyncio.run(user_data.storge_data(user_input, response, time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()), model_name))
+
         return response
     except:
         return "ChatGLM3 任务存在问题"

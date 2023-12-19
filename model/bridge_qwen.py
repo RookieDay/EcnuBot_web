@@ -1,5 +1,7 @@
 import dashscope
-from utils import config
+import asyncio
+import time
+from utils import config, user_data
 
 dashscope.api_key = config.config["dashscope_key"]
 tongyi_data = {
@@ -8,6 +10,7 @@ tongyi_data = {
 
 
 def get_resp(user_input, max_length, top_p, temperature, history):
+    model_name = "qwen-max"
     if not history:
         tongyi_data["messages"] = [tongyi_data["messages"][0]]
     tongyi_data["messages"].append({"role": "user", "content": user_input})
@@ -27,6 +30,7 @@ def get_resp(user_input, max_length, top_p, temperature, history):
         )
         response = response["output"]["choices"][0]["message"]["content"]
         tongyi_data["messages"].append({"role": "assistant", "content": response})
+        asyncio.run(user_data.storge_data(user_input, response, time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()), model_name))
         return response
     except:
         return "qwen 任务存在问题"
