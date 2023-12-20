@@ -52,6 +52,17 @@ def user_text(user_input, history):
 def text_unlock(k):
     return gr.update(interactive=True)
 
+def vote(data: gr.LikeData):
+    print("data...")
+    print(data)
+    print(data.index)
+    print(data.value)
+    print(data.liked)
+    if data.liked:
+        print("You upvoted this response: " + data.value)
+    else:
+        print("You downvoted this response: " + data.value)
+
 
 def predict(
     chatbot,
@@ -83,7 +94,11 @@ def predict(
         time.sleep(0.05)
         yield chatbot
 
-with gr.Blocks() as demo:
+user_scc = """
+    
+"""
+ 
+with gr.Blocks(title="EcnuBot", css=user_scc) as demo:
     gr.Markdown(
         """\
     <p align="center"><img src='/file=assets/Logo.png' style="height: 60px"/><p>"""
@@ -130,16 +145,43 @@ with gr.Blocks() as demo:
                 )
 
             with gr.Column(scale=6):
-                chatbot = gr.Chatbot(
-                    avatar_images=["assets/User.png", "assets/EcnuBot.png"]
-                )
-                user_input = gr.Textbox(
-                    show_label=False, placeholder="请输入您的提问", lines=2, interactive=True
-                ).style(container=False)
-                with gr.Column(min_width=32, scale=1):
-                    with gr.Row():
-                        emptyBtn = gr.Button("🧹 Clear History (清除历史)")
-                        submitBtn = gr.Button("🚀 Submit (发送)", variant="primary")
+                with gr.Row():
+                    chatbot = gr.Chatbot(
+                        avatar_images=["assets/User.png", "assets/EcnuBot.png"],
+                        show_copy_button=True,
+                    )
+                # with gr.Row():
+                    # with gr.Box():
+                with gr.Row():
+                        user_input = gr.Textbox(
+                        show_label=False, placeholder="请输入问题，可通过Shift+Enter发送问题", lines=2, interactive=True
+                    ).style(container=False)
+                with gr.Row():
+                            emptyBtn = gr.Button("🧹 Clear History (清除历史)")
+                            submitBtn = gr.Button("🚀 Submit (发送)", variant="primary")
+
+                with gr.Row(elem_id="chatbot-buttons", visible=False):
+                    with gr.Column(min_width=120, scale=1):
+                        retryBtn = gr.Button(
+                            ("🔄 重新生成"), elem_id="gr-retry-btn")
+                    with gr.Row(visible=True) as like_dislike_area:
+                        with gr.Column(min_width=20, scale=1):
+                            likeBtn = gr.Button(
+                                "👍", elem_id="gr-like-btn")
+                        with gr.Column(min_width=20, scale=1):
+                            dislikeBtn = gr.Button(
+                                "👎", elem_id="gr-dislike-btn")
+            # with gr.Column(scale=6):
+            #     chatbot = gr.Chatbot(
+            #         avatar_images=["assets/User.png", "assets/EcnuBot.png"]
+            #     )
+            #     user_input = gr.Textbox(
+            #         show_label=False, placeholder="请输入问题，可通过Shift+Enter发送问题", lines=2, interactive=True
+            #     ).style(container=False)
+            #     with gr.Column(min_width=32, scale=1):
+            #         with gr.Row():
+            #             emptyBtn = gr.Button("🧹 Clear History (清除历史)")
+            #             submitBtn = gr.Button("🚀 Submit (发送)", variant="primary")
 
     history = gr.State([])
 
@@ -164,6 +206,7 @@ with gr.Blocks() as demo:
             }""",
     )
 
+    
     submitBtn.click(
         user_text, [user_input, chatbot], [user_input, user_input, chatbot], queue=False
     ).then(
@@ -175,11 +218,24 @@ with gr.Blocks() as demo:
         text_unlock, [], [user_input]
     )
 
+    user_input.submit(
+        user_text, [user_input, chatbot], [user_input, user_input, chatbot], queue=False
+    ).then(
+        predict,
+        [chatbot, model_dropdown, edu_radio, max_length, top_p, temperature],
+        [chatbot],
+        show_progress=True,
+    ).then(
+        text_unlock, [], [user_input]
+    )
+    # chatbot.like(vote, None, None) 
+
     edu_radio.select(reset_radio_input, [], [user_input], queue=False)
     emptyBtn.click(reset_state, outputs=[chatbot, history], queue=False)
 
 demo.queue().launch(
     share=False,
+    favicon_path="./assets/Logo.png",
     server_name="127.0.0.1",
     server_port=8501,
     inbrowser=True,
