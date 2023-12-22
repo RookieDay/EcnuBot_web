@@ -1,6 +1,9 @@
 import time
+import asyncio
 import gradio as gr
 from model import bridge_qianfan, bridge_ChatGLM3, bridge_educhat, bridge_qwen
+from themes.base import dark_mode, likeBtn, blockCss
+from utils import user_like
 
 
 def parse_text(text):
@@ -45,6 +48,8 @@ def reset_radio_input():
 
 
 def user_text(user_input, history):
+    if user_input == "":
+        return user_input, user_input, history
     prompt = parse_text(user_input)
     return gr.update(interactive=False), gr.update(value=""), history + [[prompt, None]]
 
@@ -52,16 +57,34 @@ def user_text(user_input, history):
 def text_unlock(k):
     return gr.update(interactive=True)
 
-def vote(data: gr.LikeData):
-    print("data...")
-    print(data)
-    print(data.index)
-    print(data.value)
-    print(data.liked)
-    if data.liked:
-        print("You upvoted this response: " + data.value)
+
+def regenerate(user_input, chatbot):
+    if not chatbot:
+        yield gr.update(interactive=False), chatbot
+        return
+    chatbot[-1][1] = None
+    yield gr.update(interactive=False), chatbot
+    return
+
+
+def vote(chatbot, index_state, data: gr.LikeData):
+    value_new = data.value
+    index_new = data.index
+    asyncio.run(
+        user_like.storge_data(
+            chatbot[index_new[0]][0],
+            chatbot[index_new[0]][1],
+            data.liked,
+            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+        )
+    )
+    if len(index_state) == 0:
+        index_state.append(index_new)
     else:
-        print("You downvoted this response: " + data.value)
+        if index_new in index_state:
+            index_state.pop(-1)
+            index_state.append(index_new)
+    return index_state
 
 
 def predict(
@@ -72,21 +95,22 @@ def predict(
     top_p,
     temperature,
 ):
+    if not chatbot or ((len(chatbot) >= 1 and chatbot[-1][1])):
+        yield chatbot
+        return
     history = chatbot[:-1]
     prompt = chatbot[-1][0]
     chatbot[-1][1] = ""
     if model_dropdown == "EduChat":
-        response = bridge_educhat.get_resp(prompt, edu_radio, max_length, top_p, temperature, history)
+        response = bridge_educhat.get_resp(
+            prompt, edu_radio, max_length, top_p, temperature, history
+        )
     if model_dropdown == "qianfan":
         response = bridge_qianfan.get_resp(prompt, top_p, temperature, history)
     if model_dropdown == "qwen":
         response = bridge_qwen.get_resp(prompt, max_length, top_p, temperature, history)
-    print('model_dropdown')
-    print(model_dropdown)
     if model_dropdown == "ChatGLM3":
         response = bridge_ChatGLM3.get_resp(prompt, history)
-        print('in glm3....')
-        print(response)
     history = history + [[prompt, response]]
     for stream_char in response:
         print(stream_char)
@@ -94,11 +118,8 @@ def predict(
         time.sleep(0.05)
         yield chatbot
 
-user_scc = """
-    
-"""
- 
-with gr.Blocks(title="EcnuBot", css=user_scc) as demo:
+
+with gr.Blocks(title="EcnuBot", css="" + blockCss + "") as demo:
     gr.Markdown(
         """\
     <p align="center"><img src='/file=assets/Logo.png' style="height: 60px"/><p>"""
@@ -150,40 +171,19 @@ with gr.Blocks(title="EcnuBot", css=user_scc) as demo:
                         avatar_images=["assets/User.png", "assets/EcnuBot.png"],
                         show_copy_button=True,
                     )
-                # with gr.Row():
-                    # with gr.Box():
                 with gr.Row():
-                        user_input = gr.Textbox(
-                        show_label=False, placeholder="请输入问题，可通过Shift+Enter发送问题", lines=2, interactive=True
+                    user_input = gr.Textbox(
+                        show_label=False,
+                        placeholder="请输入问题，可通过Shift+Enter发送问题",
+                        lines=2,
+                        interactive=True,
                     ).style(container=False)
                 with gr.Row():
-                            emptyBtn = gr.Button("🧹 Clear History (清除历史)")
-                            submitBtn = gr.Button("🚀 Submit (发送)", variant="primary")
-
-                with gr.Row(elem_id="chatbot-buttons", visible=False):
-                    with gr.Column(min_width=120, scale=1):
-                        retryBtn = gr.Button(
-                            ("🔄 重新生成"), elem_id="gr-retry-btn")
-                    with gr.Row(visible=True) as like_dislike_area:
-                        with gr.Column(min_width=20, scale=1):
-                            likeBtn = gr.Button(
-                                "👍", elem_id="gr-like-btn")
-                        with gr.Column(min_width=20, scale=1):
-                            dislikeBtn = gr.Button(
-                                "👎", elem_id="gr-dislike-btn")
-            # with gr.Column(scale=6):
-            #     chatbot = gr.Chatbot(
-            #         avatar_images=["assets/User.png", "assets/EcnuBot.png"]
-            #     )
-            #     user_input = gr.Textbox(
-            #         show_label=False, placeholder="请输入问题，可通过Shift+Enter发送问题", lines=2, interactive=True
-            #     ).style(container=False)
-            #     with gr.Column(min_width=32, scale=1):
-            #         with gr.Row():
-            #             emptyBtn = gr.Button("🧹 Clear History (清除历史)")
-            #             submitBtn = gr.Button("🚀 Submit (发送)", variant="primary")
-
+                    emptyBtn = gr.Button("🧹 Clear History (清除历史)")
+                    submitBtn = gr.Button("🚀 Submit (发送)", variant="primary")
+                    retryBtn = gr.Button("🤔️ Regenerate (重试)")
     history = gr.State([])
+    index_state = gr.State([])
 
     def on_md_dropdown_changed(k):
         ret = {edu_radio: gr.update(visible=True)}
@@ -197,18 +197,14 @@ with gr.Blocks(title="EcnuBot", css=user_scc) as demo:
         None,
         None,
         None,
-        _js="""() => {
-                if (document.querySelectorAll('.dark').length) {
-                    document.querySelectorAll('.dark').forEach(el => el.classList.remove('dark'));
-                } else {
-                    document.querySelector('body').classList.add('dark');
-                }
-            }""",
+        _js="() => {" + dark_mode + "}",
     )
 
-    
     submitBtn.click(
-        user_text, [user_input, chatbot], [user_input, user_input, chatbot], queue=False
+        user_text,
+        [user_input, chatbot],
+        [user_input, user_input, chatbot],
+        queue=False,
     ).then(
         predict,
         [chatbot, model_dropdown, edu_radio, max_length, top_p, temperature],
@@ -216,6 +212,11 @@ with gr.Blocks(title="EcnuBot", css=user_scc) as demo:
         show_progress=True,
     ).then(
         text_unlock, [], [user_input]
+    ).then(
+        None,
+        [chatbot],
+        None,
+        _js="() => {" + likeBtn + "}",
     )
 
     user_input.submit(
@@ -227,8 +228,33 @@ with gr.Blocks(title="EcnuBot", css=user_scc) as demo:
         show_progress=True,
     ).then(
         text_unlock, [], [user_input]
+    ).then(
+        None,
+        [chatbot],
+        None,
+        _js="() => {" + likeBtn + "}",
     )
-    # chatbot.like(vote, None, None) 
+
+    retryBtn.click(
+        regenerate,
+        [user_input, chatbot],
+        [user_input, chatbot],
+        show_progress=True,
+    ).then(
+        predict,
+        [chatbot, model_dropdown, edu_radio, max_length, top_p, temperature],
+        [chatbot],
+        show_progress=True,
+    ).then(
+        text_unlock, [], [user_input]
+    ).then(
+        None,
+        [chatbot],
+        None,
+        _js="() => {" + likeBtn + "}",
+    )
+
+    chatbot.like(vote, [chatbot, index_state], [index_state])
 
     edu_radio.select(reset_radio_input, [], [user_input], queue=False)
     emptyBtn.click(reset_state, outputs=[chatbot, history], queue=False)
