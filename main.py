@@ -1,42 +1,19 @@
 import time
+import os
+import json
+import requests
+import base64
 import asyncio
 import gradio as gr
-from model import bridge_qianfan, bridge_ChatGLM3, bridge_educhat, bridge_qwen
+from model import (
+    bridge_qianfan,
+    bridge_ChatGLM3,
+    bridge_educhat,
+    bridge_qwen,
+    bridge_knowledge,
+)
 from themes.base import dark_mode, likeBtn, blockCss
-from utils import user_like
-
-
-def parse_text(text):
-    """copy from https://github.com/GaiZhenbiao/ChuanhuChatGPT/"""
-    lines = text.split("\n")
-    lines = [line for line in lines if line != ""]
-    count = 0
-    for i, line in enumerate(lines):
-        if "```" in line:
-            count += 1
-            items = line.split("`")
-            if count % 2 == 1:
-                lines[i] = f'<pre><code class="language-{items[-1]}">'
-            else:
-                lines[i] = f"<br></code></pre>"
-        else:
-            if i > 0:
-                if count % 2 == 1:
-                    line = line.replace("`", "\`")
-                    line = line.replace("<", "&lt;")
-                    line = line.replace(">", "&gt;")
-                    line = line.replace(" ", "&nbsp;")
-                    line = line.replace("*", "&ast;")
-                    line = line.replace("_", "&lowbar;")
-                    line = line.replace("-", "&#45;")
-                    line = line.replace(".", "&#46;")
-                    line = line.replace("!", "&#33;")
-                    line = line.replace("(", "&#40;")
-                    line = line.replace(")", "&#41;")
-                    line = line.replace("$", "&#36;")
-                lines[i] = "<br>" + line
-    text = "".join(lines)
-    return text
+from utils import gradio_utils
 
 
 def reset_state():
@@ -50,7 +27,8 @@ def reset_radio_input():
 def user_text(user_input, history):
     if user_input == "":
         return user_input, user_input, history
-    prompt = parse_text(user_input)
+    prompt = gradio_utils.parse_text(user_input)
+
     return gr.update(interactive=False), gr.update(value=""), history + [[prompt, None]]
 
 
@@ -71,7 +49,7 @@ def vote(chatbot, index_state, data: gr.LikeData):
     value_new = data.value
     index_new = data.index
     asyncio.run(
-        user_like.storge_data(
+        gradio_utils.userlike_data(
             chatbot[index_new[0]][0],
             chatbot[index_new[0]][1],
             data.liked,
@@ -89,6 +67,9 @@ def vote(chatbot, index_state, data: gr.LikeData):
 
 def predict(
     chatbot,
+    quest_select,
+    knowledge_name,
+    knowledge_dropdown,
     model_dropdown,
     edu_radio,
     max_length,
@@ -101,19 +82,30 @@ def predict(
     history = chatbot[:-1]
     prompt = chatbot[-1][0]
     chatbot[-1][1] = ""
-    if model_dropdown == "EduChat":
-        response = bridge_educhat.get_resp(
-            prompt, edu_radio, max_length, top_p, temperature, history
-        )
-    if model_dropdown == "qianfan":
-        response = bridge_qianfan.get_resp(prompt, top_p, temperature, history)
-    if model_dropdown == "qwen":
-        response = bridge_qwen.get_resp(prompt, max_length, top_p, temperature, history)
-    if model_dropdown == "ChatGLM3":
-        response = bridge_ChatGLM3.get_resp(prompt, history)
+    if quest_select == "知识库问答":
+        if len(knowledge_dropdown) >= 1:
+            print("n。。")
+            print(knowledge_dropdown)
+            response = bridge_knowledge.get_resp(prompt, knowledge_dropdown, history)
+        response = bridge_knowledge.get_resp(prompt, knowledge_name, history)
+    if quest_select == "模型问答":
+        if model_dropdown == "EduChat":
+            response = bridge_educhat.get_resp(
+                prompt, edu_radio, max_length, top_p, temperature, history
+            )
+        if model_dropdown == "qianfan":
+            response = bridge_qianfan.get_resp(prompt, top_p, temperature, history)
+        if model_dropdown == "qwen":
+            response = bridge_qwen.get_resp(
+                prompt, max_length, top_p, temperature, history
+            )
+        if model_dropdown == "ChatGLM3":
+            response = bridge_ChatGLM3.get_resp(prompt, history)
     history = history + [[prompt, response]]
+    print("history")
+    print(history)
     for stream_char in response:
-        print(stream_char)
+        # print(stream_char)
         chatbot[-1][1] += stream_char
         time.sleep(0.05)
         yield chatbot
@@ -128,30 +120,70 @@ with gr.Blocks(title="EcnuBot", css="" + blockCss + "") as demo:
     with gr.Column():
         with gr.Row():
             with gr.Column(scale=1, elem_id="model_settings"):
-                model_dropdown = gr.Dropdown(
-                    ["EduChat", "qwen", "qianfan", "ChatGLM3"],
-                    value="EduChat",
-                    label="Model list",
-                    interactive=True,
-                )
-                edu_radio = gr.Radio(
-                    ["问答", "情感", "教学"],
-                    value="问答",
-                    label="Prompt type",
-                    visible=True,
-                    interactive=True,
-                )
-                with gr.Accordion("Settings", open=True):
+                with gr.Row():
+                    quest_select = gr.Radio(
+                        ["模型问答", "知识库问答"],
+                        value="模型问答",
+                        label="对话形式",
+                        visible=True,
+                        interactive=True,
+                    )
+                with gr.Row():
+                    upload_file = gr.File(
+                        label="上传文件",
+                        file_types=[".pdf", ".xlsx", "text", ".docx", ".pptx"],
+                        file_count="multiple",
+                        type="file",
+                        visible=False,
+                    )
+                    knowledge_name = gr.Textbox(
+                        label="知识库名称",
+                        visible=False,
+                        info="重新构建知识库，将清除原知识库问答历史记录",
+                    )
+                    knowledge_button = gr.Button(
+                        value="构建知识库",
+                        variant="primary",
+                        visible=False,
+                    )
+                    knowledge_dropdown = gr.Dropdown(
+                        label="请选择当前已构建知识库，直接问答提问",
+                        visible=False,
+                    )
+        
+                with gr.Row():
+                    model_dropdown = gr.Dropdown(
+                        ["EduChat", "qwen", "qianfan", "ChatGLM3"],
+                        value="EduChat",
+                        label="模型列表",
+                        visible=True,
+                        interactive=True,
+                    )
+                    edu_radio = gr.Radio(
+                        ["问答", "情感", "教学"],
+                        value="问答",
+                        label="交互类型",
+                        visible=True,
+                        interactive=True,
+                    )
+                with gr.Accordion("设置", open=True) as settings_model:
                     max_length = gr.Slider(
                         0,
                         4096,
                         value=1024,
                         step=1.0,
                         label="Maximum length",
+                        visible=True,
                         interactive=True,
                     )
                     top_p = gr.Slider(
-                        0, 1, value=0.8, step=0.01, label="Top P", interactive=True
+                        0,
+                        1,
+                        value=0.8,
+                        step=0.01,
+                        label="Top P",
+                        interactive=True,
+                        visible=True,
                     )
                     temperature = gr.Slider(
                         0,
@@ -160,6 +192,7 @@ with gr.Blocks(title="EcnuBot", css="" + blockCss + "") as demo:
                         step=0.01,
                         label="Temperature",
                         interactive=True,
+                        visible=True,
                     )
                 dark_mode_btn = gr.Button("切换界面明暗模式 ☀", variant="secondary").style(
                     size="sm"
@@ -184,6 +217,70 @@ with gr.Blocks(title="EcnuBot", css="" + blockCss + "") as demo:
                     retryBtn = gr.Button("🤔️ Regenerate (重试)")
     history = gr.State([])
     index_state = gr.State([])
+    knowledge_state = gr.State([])
+
+    def on_select_changed(
+        quest_select,
+        model_dropdown,
+        edu_radio,
+        upload_file,
+        knowledge_name,
+        knowledge_dropdown,
+        knowledge_button,
+    ):
+        model_dropdown = gr.Dropdown.update(visible=True)
+        edu_radio = gr.Radio.update(visible=True)
+        upload_file = gr.File.update(visible=False)
+        knowledge_name = gr.Textbox.update(visible=False)
+        knowledge_dropdown = gr.Textbox.update(visible=False)
+        knowledge_button = gr.Button.update(visible=False)
+        settings_model = gr.Accordion.update(visible=True)
+
+        if not quest_select == "模型问答":
+            print("in........")
+            print(quest_select)
+            model_dropdown = gr.Dropdown.update(visible=False)
+            edu_radio = gr.Radio.update(visible=False)
+            #
+            upload_file = gr.File.update(visible=True)
+            knowledge_name = gr.Textbox.update(visible=True)
+            print("knowledge_dropdown")
+            print(knowledge_dropdown)
+            if knowledge_dropdown == None:
+                knowledge_dropdown = gr.Button.update(visible=True)
+            knowledge_button = gr.Textbox.update(visible=True)
+            settings_model = gr.Accordion.update(visible=False)
+        return (
+            model_dropdown,
+            edu_radio,
+            upload_file,
+            knowledge_name,
+            knowledge_dropdown,
+            knowledge_button,
+            settings_model,
+        )
+
+    quest_select.change(
+        on_select_changed,
+        [
+            quest_select,
+            model_dropdown,
+            edu_radio,
+            upload_file,
+            knowledge_name,
+            knowledge_dropdown,
+            knowledge_button,
+        ],
+        [
+            model_dropdown,
+            edu_radio,
+            upload_file,
+            knowledge_name,
+            knowledge_dropdown,
+            knowledge_button,
+            settings_model,
+        ],
+    )
 
     def on_md_dropdown_changed(k):
         ret = {edu_radio: gr.update(visible=True)}
@@ -207,7 +304,17 @@ with gr.Blocks(title="EcnuBot", css="" + blockCss + "") as demo:
         queue=False,
     ).then(
         predict,
-        [chatbot, model_dropdown, edu_radio, max_length, top_p, temperature],
+        [
+            chatbot,
+            quest_select,
+            knowledge_name,
+            knowledge_dropdown,
+            model_dropdown,
+            edu_radio,
+            max_length,
+            top_p,
+            temperature,
+        ],
         [chatbot],
         show_progress=True,
     ).then(
@@ -223,7 +330,17 @@ with gr.Blocks(title="EcnuBot", css="" + blockCss + "") as demo:
         user_text, [user_input, chatbot], [user_input, user_input, chatbot], queue=False
     ).then(
         predict,
-        [chatbot, model_dropdown, edu_radio, max_length, top_p, temperature],
+        [
+            chatbot,
+            quest_select,
+            knowledge_name,
+            knowledge_dropdown,
+            model_dropdown,
+            edu_radio,
+            max_length,
+            top_p,
+            temperature,
+        ],
         [chatbot],
         show_progress=True,
     ).then(
@@ -242,7 +359,17 @@ with gr.Blocks(title="EcnuBot", css="" + blockCss + "") as demo:
         show_progress=True,
     ).then(
         predict,
-        [chatbot, model_dropdown, edu_radio, max_length, top_p, temperature],
+        [
+            chatbot,
+            quest_select,
+            knowledge_name,
+            knowledge_dropdown,
+            model_dropdown,
+            edu_radio,
+            max_length,
+            top_p,
+            temperature,
+        ],
         [chatbot],
         show_progress=True,
     ).then(
@@ -253,6 +380,37 @@ with gr.Blocks(title="EcnuBot", css="" + blockCss + "") as demo:
         None,
         _js="() => {" + likeBtn + "}",
     )
+
+    def knowledge_create(knowledge_name, upload_file, knowledge_state):
+        if upload_file == None:
+            gr.Warning("请先上传文件，再点击构建知识库")
+            return knowledge_name
+        gr.Info("知识库创建中...")
+        resp = bridge_knowledge.knowledge_get(knowledge_name, upload_file)
+        if resp["status"] == 200:
+            print("Connection established. Receiving data...")
+            gr.Info("知识库创建成功")
+            knowledge_state.insert(0, knowledge_name)
+            return knowledge_name
+        else:
+            print("Failed to connect. Status code:", resp["status"])
+            gr.Error("知识库创建失败")
+            return knowledge_name
+
+    def show_knowledge_dropdown(knowledge_state):
+        if len(knowledge_state) == 0:
+            return ""
+        return gr.Dropdown.update(
+            visible=True, choices=knowledge_state, value=knowledge_state[0]
+        )
+
+    knowledge_button.click(
+        knowledge_create,
+        [knowledge_name, upload_file, knowledge_state],
+        [knowledge_name],
+    ).then(show_knowledge_dropdown, [knowledge_state], [knowledge_dropdown])
+
+    knowledge_dropdown.change(reset_state, outputs=[chatbot, history], queue=False)
 
     chatbot.like(vote, [chatbot, index_state], [index_state])
 

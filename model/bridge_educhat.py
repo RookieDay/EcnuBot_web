@@ -26,10 +26,13 @@ def get_resp(user_input, edu_radio, max_length, top_p, temperature, history):
     if edu_radio == "情感":
         ecnu_data = ecnu_emo
     if not history:
+        print('in...')
         ecnu_data["messages"] = []
     ecnu_data["top_p"] = top_p
     ecnu_data["max_tokens"] = max_length
     ecnu_data["temperature"] = temperature
+    print('ecnu_data')
+    print(ecnu_data)
     try:
         url = "http://127.0.0.1:8001/chat"
         ecnu_data["messages"].append({"role": "prompter", "content": user_input})
