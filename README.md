@@ -26,6 +26,7 @@
 **⚡ 支持**   
 * [x] web端
 * [x] 自动问答
+* [x] 知识库问答
 * [x] 流式输出
 * [x] 切换明暗模式
 * [x] 支持 EduChat 大模型
@@ -64,6 +65,12 @@ python .\main.py
 <details><summary><b>能力菜单</b></summary>
 
 ![image](https://github.com/RookieDay/EcnuBot_web/blob/main/assets/Menu.png)
+
+</details>
+
+<details><summary><b>知识库问答</b></summary>
+
+![image](https://github.com/RookieDay/EcnuBot_web/blob/main/assets/knowledge.png)
 
 </details>
 
