@@ -4,6 +4,7 @@ import pandas as pd
 
 file_name = "user_like.csv"
 
+
 async def userlike_data(text_prompt, response, liked, local_time):
     if not os.path.exists(file_name):
         with open(file_name, mode="w", encoding="utf-8") as f:
@@ -27,6 +28,7 @@ async def userlike_data(text_prompt, response, liked, local_time):
         user_dfNew = pd.concat([user_QA, user_df], ignore_index=True)
         # print(user_dfNew)
         user_dfNew.to_csv(file_name, index=False)
+
 
 def parse_text(text):
     """copy from https://github.com/GaiZhenbiao/ChuanhuChatGPT/"""

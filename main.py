@@ -1,8 +1,4 @@
 import time
-import os
-import json
-import requests
-import base64
 import asyncio
 import gradio as gr
 from model import (
@@ -150,7 +146,7 @@ with gr.Blocks(title="EcnuBot", css="" + blockCss + "") as demo:
                         label="请选择当前已构建知识库，直接问答提问",
                         visible=False,
                     )
-        
+
                 with gr.Row():
                     model_dropdown = gr.Dropdown(
                         ["EduChat", "qwen", "qianfan", "ChatGLM3"],
@@ -160,8 +156,8 @@ with gr.Blocks(title="EcnuBot", css="" + blockCss + "") as demo:
                         interactive=True,
                     )
                     edu_radio = gr.Radio(
-                        ["问答", "情感", "教学"],
-                        value="问答",
+                        ["问答-无搜索", "问答-有搜索", "情感", "教学"],
+                        value="问答-无搜索",
                         label="交互类型",
                         visible=True,
                         interactive=True,
@@ -424,4 +420,5 @@ demo.queue().launch(
     server_port=8501,
     inbrowser=True,
     allowed_paths=["./"],
+    # auth=[("a", "1"), ("b", "2")],
 )

@@ -4,6 +4,7 @@ import pandas as pd
 
 file_name = "user_QA.csv"
 
+
 async def storge_data(text_prompt, response, local_time, model_name):
     if not os.path.exists(file_name):
         with open(file_name, mode="w", encoding="utf-8") as f:

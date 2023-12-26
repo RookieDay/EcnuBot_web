@@ -4,11 +4,9 @@ import asyncio
 import time
 import json
 import requests
-from utils import config, user_data
+from utils import user_data
 
-knowledge_data = {
-    "messages": []
-}
+knowledge_data = {"messages": []}
 
 
 def get_resp(user_input, knowledge_name, history):
@@ -25,10 +23,18 @@ def get_resp(user_input, knowledge_name, history):
         response = requests.post(url, data=payload, headers=headers)
         response = response.json()["response"]
         knowledge_data["messages"].append({"role": "assistant", "content": response})
-        asyncio.run(user_data.storge_data(user_input, response, time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()), model_name))
+        asyncio.run(
+            user_data.storge_data(
+                user_input,
+                response,
+                time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                model_name,
+            )
+        )
         return response
     except:
         return "知识库问答任务存在问题"
+
 
 def knowledge_get(knowledge_name, upload_file):
     file_dict = {}

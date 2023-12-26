@@ -7,3 +7,5 @@ question,response,liked,date_time
 1,EduChat 任务存在问题,True,2023-12-22 11:51:20
 3,EduChat 任务存在问题,True,2023-12-24 11:18:52
 3,EduChat 任务存在问题,False,2023-12-24 11:18:53
+请帮我提取文章摘要,这篇文章是一个 curated list，列出了 ChatGPT 框架、库和软件。这个列表包括 ChatGPT 下一代的跨平台应用程序，以及各种使用和教程指南。它还提到了一些支持 ChatGPT 的库和工具，如 PlexPt、openai/openai-cookbook、xtekky/gpt4free、nbinar,True,2023-12-25 20:20:32
+请帮我提取文章摘要,这篇文章是一个 curated list，列出了 ChatGPT 框架、库和软件。这个列表包括 ChatGPT 下一代的跨平台应用程序，以及各种使用和教程指南。它还提到了一些支持 ChatGPT 的库和工具，如 PlexPt、openai/openai-cookbook、xtekky/gpt4free、nbinary-husky/gpt_academic、air-ai/Prompt-Engineering-Guide、Chanzhaoyu/chatgpt-web、StanGirard/quivr、KillianLucas/open-interpreter、geekxh/hello-algorithm 等。,True,2023-12-25 20:20:34
